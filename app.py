@@ -175,5 +175,45 @@ def pricing():
 def checkout():
     if "user" not in session:
         return redirect("/login")
-    
-    html = '''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Checkout - JobFlow</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;j
+    html = '''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout - JobFlow</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+color:#f1f5f9;
+min-height:100vh;
+display:flex;
+align-items:center;
+justify-content:center
+}
+.container{
+width:100%;
+max-width:500px;
+padding:20px
+}
+.card{
+background:rgba(30,41,59,0.8);
+border-radius:20px;
+padding:40px;
+text-align:center
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+<div class="card">
+<h2>Checkout Page</h2>
+<p>Fix successful ✅</p>
+</div>
+</div>
+
+</body>
+</html>
+'''

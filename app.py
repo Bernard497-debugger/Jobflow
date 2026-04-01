@@ -34,7 +34,7 @@ BASE_URL = "https://api.adzuna.com/v1/api/jobs"
 
 def search_jobs(keyword, location):
     try:
-        url = BASE_URL + "/za/search/1"
+        url = f"{BASE_URL}/gb/search/1"
         params = {"app_id": APP_ID, "app_key": APP_KEY, "what": keyword, "where": location, "results_per_page": 15}
         r = requests.get(url, params=params, timeout=10)
         return r.json().get("results", [])

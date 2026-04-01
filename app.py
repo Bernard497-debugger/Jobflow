@@ -57,8 +57,13 @@ def search_jobs(keyword, location):
     except:
         return []
 
+GOOGLE_SITE_VERIFICATION = "google5ce0866dc1e9ca22"
+
 def get_adsense_script():
-    return f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={GOOGLE_PUBLISHER_ID}" crossorigin="anonymous"></script>'
+    return (
+        f'<meta name="google-site-verification" content="{GOOGLE_SITE_VERIFICATION}">'
+        f'<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={GOOGLE_PUBLISHER_ID}" crossorigin="anonymous"></script>'
+    )
 
 def get_adsense_ad(slot="7654321098"):
     return f'<ins class="adsbygoogle" style="display:block" data-ad-client="{GOOGLE_PUBLISHER_ID}" data-ad-slot="{slot}" data-ad-format="auto" data-full-width-responsive="true"></ins><script>(adsbygoogle = window.adsbygoogle || []).push({{}});</script>'

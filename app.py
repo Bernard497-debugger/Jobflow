@@ -28,8 +28,8 @@ PLANS = {
     "premium": {"name": "Premium", "price": "$9.99", "jobs_per_month": 500, "features": ["Unlimited searches", "Save jobs", "Job alerts", "Advanced filters"]}
 }
 
-APP_ID = "YOUR_APP_ID"
-APP_KEY = "YOUR_APP_KEY"
+APP_ID = os.environ.get("APP_ID")
+APP_KEY = os.environ.get("APP_KEY")
 BASE_URL = "https://api.adzuna.com/v1/api/jobs"
 
 def search_jobs(keyword, location):
@@ -176,75 +176,4 @@ def checkout():
     if "user" not in session:
         return redirect("/login")
     
-    html = '''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Checkout - JobFlow</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center}.container{width:100%;max-width:500px;padding:20px}.card{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.3)}.logo{font-size:40px;text-align:center;margin-bottom:20px}h2{font-size:28px;margin-bottom:20px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.plan-box{background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.2);border-radius:10px;padding:20px;margin-bottom:20px}.plan-box h3{margin-bottom:10px;color:#0ea5e9}.price-display{font-size:32px;font-weight:700;color:#0ea5e9;margin-bottom:20px}.features-list{list-style:none;margin-bottom:20px}.features-list li{padding:8px 0;color:#cbd5e1;display:flex;gap:8px}.features-list li:before{content:'CHECK';color:#22c55e;font-weight:bold;font-size:12px}.form-group{margin-bottom:15px}label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:#cbd5e1;text-transform:uppercase}input{width:100%;padding:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.2);border-radius:8px;color:#f1f5f9}.btn{width:100%;padding:14px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;transition:all 0.3s ease;text-transform:uppercase;margin-top:20px}.btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(14,165,233,0.3)}.info{background:rgba(34,197,94,0.1);border:1px solid #22c55e;color:#86efac;padding:12px;border-radius:8px;margin-bottom:20px;font-size:13px}.error{background:rgba(239,68,68,0.1);border:1px solid #ef4444;color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;font-size:13px}a{color:#0ea5e9;text-decoration:none}</style></head><body><div class="container"><div class="card"><div class="logo">MONEY</div><h2>Upgrade to Premium</h2><div class="info">CLOCK Demo Mode: Use card 4242 4242 4242 4242</div><div class="plan-box"><h3>Premium Plan</h3><div class="price-display">$9.99/mo</div><ul class="features-list"><li>Unlimited searches</li><li>Save jobs</li><li>Job alerts</li><li>Advanced filters</li></ul></div><form action="/process-payment" method="POST"><div class="form-group"><label>Cardholder Name</label><input type="text" name="name" placeholder="John Doe" required></div><div class="form-group"><label>Card Number</label><input type="text" name="card" placeholder="4242 4242 4242 4242" maxlength="19" required></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="form-group"><label>Expiry (MM/YY)</label><input type="text" name="expiry" placeholder="12/25" maxlength="5" required></div><div class="form-group"><label>CVC</label><input type="text" name="cvc" placeholder="123" maxlength="3" required></div></div><button type="submit" class="btn">Complete Purchase</button><a href="/pricing" style="display:block;text-align:center;margin-top:15px;font-size:14px;">← Back to Pricing</a></form></div></div></body></html>'''
-    
-    return html
-
-@app.route("/process-payment", methods=["POST"])
-def process_payment():
-    if "user" not in session:
-        return redirect("/login")
-    
-    name = request.form.get("name", "").strip()
-    card = request.form.get("card", "").strip()
-    expiry = request.form.get("expiry", "").strip()
-    cvc = request.form.get("cvc", "").strip()
-    
-    # Basic validation
-    if not all([name, card, expiry, cvc]):
-        return "Error: All fields required", 400
-    
-    if len(card) < 16:
-        return "Error: Invalid card number", 400
-    
-    # Process payment (in demo, just approve it)
-    users = load_users()
-    users[session["user"]]["plan"] = "premium"
-    users[session["user"]]["payment_method"] = card[-4:]
-    users[session["user"]]["upgraded_at"] = datetime.now().isoformat()
-    save_users(users)
-    
-    session["plan"] = "premium"
-    
-    html = '''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Payment Success - JobFlow</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center}.container{width:100%;max-width:500px;padding:20px}.card{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:20px;padding:40px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3)}.success-icon{font-size:60px;margin-bottom:20px}h2{font-size:28px;margin-bottom:10px;color:#22c55e}p{color:#cbd5e1;margin-bottom:20px;font-size:15px}.details{background:rgba(34,197,94,0.1);border:1px solid #22c55e;border-radius:10px;padding:20px;margin-bottom:30px;text-align:left}.details p{margin-bottom:10px;color:#86efac}.btn{display:inline-block;padding:14px 30px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;text-decoration:none;border-radius:10px;font-weight:600;transition:all 0.3s ease;text-transform:uppercase}a:hover{opacity:0.9}</style></head><body><div class="container"><div class="card"><div class="success-icon">CHECK</div><h2>Payment Successful!</h2><p>Your upgrade to Premium is complete</p><div class="details"><p>FACE Plan: <strong>Premium</strong></p><p>CLOCK Billing: Monthly at $9.99</p><p>STATUS Your account is now active</p></div><a href="/dashboard" class="btn">Go to Dashboard</a></div></div></body></html>'''
-    
-    return html
-
-@app.route("/downgrade")
-def downgrade():
-    if "user" not in session:
-        return redirect("/login")
-    
-    users = load_users()
-    users[session["user"]]["plan"] = "free"
-    users[session["user"]]["downgraded_at"] = datetime.now().isoformat()
-    save_users(users)
-    session["plan"] = "free"
-    
-    return redirect("/dashboard?downgraded=true")
-
-@app.route("/search")
-def search():
-    if "user" not in session:
-        return redirect("/login")
-
-    category = request.args.get("category", "")
-    location = request.args.get("location", "")
-    jobs = search_jobs(category, location) if category and location else []
-
-    if not jobs:
-        content = '<div class="loader"></div><div class="loader-text">Searching for jobs...</div><div class="empty-state"><h3>No jobs found</h3><p>Try different keywords</p><a href="/dashboard">BACK Back to search</a></div>'
-    else:
-        content = ""
-        for job in jobs:
-            title = job.get('title', 'Job Title')
-            company = job.get('company', {}).get('display_name', 'Company')
-            loc = job.get('location', {}).get('display_name', 'Location')
-            url = job.get('redirect_url', '#')
-            content += f'<div class="job-card"><div class="job-title">{title}</div><div class="job-company">{company}</div><div class="job-location">PIN {loc}</div><a href="{url}" target="_blank" class="apply-btn">Apply Now</a></div>'
-    
-    html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Job Results - JobFlow</title><style>*{{margin:0;padding:0;box-sizing:border-box}}body{{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh}}.navbar{{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border-bottom:1px solid rgba(148,163,184,0.1);padding:15px 30px;position:sticky;top:0;z-index:100}}.navbar a{{color:#0ea5e9;text-decoration:none;font-weight:600}}.container{{max-width:900px;margin:40px auto;padding:0 20px}}.search-header{{background:rgba(30,41,59,0.6);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:15px;padding:25px;margin-bottom:30px}}.search-header h2{{font-size:24px;margin-bottom:8px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}}.job-card{{background:rgba(30,41,59,0.6);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:15px;padding:25px;margin-bottom:20px;transition:all 0.3s ease}}.job-card:hover{{border-color:rgba(14,165,233,0.3);transform:translateY(-3px)}}.job-title{{font-size:18px;font-weight:600;margin-bottom:8px}}.job-company{{font-size:15px;color:#0ea5e9;font-weight:500;margin-bottom:5px}}.job-location{{font-size:13px;color:#cbd5e1;margin-bottom:15px}}.apply-btn{{display:inline-block;padding:12px 24px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;text-transform:uppercase}}.loader{{width:50px;height:50px;border:4px solid rgba(148,163,184,0.2);border-top:4px solid #0ea5e9;border-radius:50%;animation:spin 0.8s linear infinite;margin:40px auto}}@keyframes spin{{100%{{transform:rotate(360deg)}}}}}},.empty-state{{text-align:center;padding:60px 20px;color:#cbd5e1}}</style></head><body><div class="navbar"><a href="/dashboard">BACK Back to Dashboard</a></div><div class="container"><div class="search-header"><h2>SEARCH Search Results</h2><p>Jobs for "<strong>{category}</strong>" in <strong>{location}</strong></p></div>{content}</div></body></html>'''
-    return html
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    html = '''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Checkout - JobFlow</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;j

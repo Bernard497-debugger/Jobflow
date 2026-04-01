@@ -5,13 +5,14 @@ import hashlib
 import requests
 from datetime import datetime
 
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "jobflow_secure_key_2024")
 
 DB_FILE = "users.json"
 GOOGLE_PUBLISHER_ID = os.getenv("GOOGLE_PUBLISHER_ID", "ca-pub-5573963043624926")
-APP_ID = os.getenv("ADZUNA_APP_ID")
-APP_KEY = os.getenv("ADZUNA_APP_KEY")
+APP_ID = os.environ.get("APP_ID")
+APP_KEY = os.environ.get("APP_KEY")
 BASE_URL = "https://api.adzuna.com/v1/api/jobs"
 
 PLANS = {

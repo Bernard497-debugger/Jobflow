@@ -28,8 +28,8 @@ PLANS = {
     "premium": {"name": "Premium", "price": "$9.99", "jobs_per_month": 500, "features": ["Unlimited searches", "Save jobs", "Job alerts", "Advanced filters"]}
 }
 
-APP_ID = "YOUR_APP_ID"
-APP_KEY = "YOUR_APP_KEY"
+APP_ID = os.environ.get("APP_ID")
+APP_KEY = os.environ.get("APP_KEY")
 BASE_URL = "https://api.adzuna.com/v1/api/jobs"
 
 def search_jobs(keyword, location):

@@ -1,13 +1,15 @@
 from flask import Flask, request, redirect, session
-import json, os, hashlib, requests
+import json
+import os
+import hashlib
+import requests
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = "secure_key_v3"
+app.secret_key = "json_saas_auth_key_secure_v2"
 
 DB_FILE = "users.json"
 
-# ---------- DATABASE ----------
 def load_users():
     if not os.path.exists(DB_FILE):
         return {}
@@ -21,173 +23,228 @@ def save_users(data):
 def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
-# ---------- PLANS ----------
 PLANS = {
-    "free": {"name": "Free", "price": "$0"},
-    "premium": {"name": "Premium", "price": "$9.99"}
+    "free": {"name": "Free", "price": "$0", "jobs_per_month": 10, "features": ["10 job searches/month", "Basic search"]},
+    "premium": {"name": "Premium", "price": "$9.99", "jobs_per_month": 500, "features": ["Unlimited searches", "Save jobs", "Job alerts", "Advanced filters"]}
 }
 
-# ---------- ENV VARS (FIXED) ----------
 APP_ID = os.environ.get("APP_ID")
 APP_KEY = os.environ.get("APP_KEY")
 BASE_URL = "https://api.adzuna.com/v1/api/jobs"
 
-# ---------- JOB SEARCH ----------
 def search_jobs(keyword, location):
     try:
-        url = f"{BASE_URL}/za/search/1"
-
-        params = {
-            "app_id": APP_ID,
-            "app_key": APP_KEY,
-            "what": keyword,
-            "where": location,
-            "results_per_page": 10
-        }
-
+        url = BASE_URL + "/za/search/1"
+        params = {"app_id": APP_ID, "app_key": APP_KEY, "what": keyword, "where": location, "results_per_page": 15}
         r = requests.get(url, params=params, timeout=10)
-        data = r.json()
-
-        print("DEBUG:", data)  # remove later
-
-        return data.get("results", [])
-
-    except Exception as e:
-        print("ERROR:", e)
+        return r.json().get("results", [])
+    except:
         return []
 
-# ---------- ROUTES ----------
 @app.route("/")
 def home():
     return redirect("/dashboard" if "user" in session else "/login")
 
-# ---------- SIGNUP ----------
-@app.route("/signup", methods=["GET", "POST"])
+@app.route("/signup", methods=["GET","POST"])
 def signup():
-    users = load_users()
     error = None
+    users = load_users()
 
     if request.method == "POST":
-        u = request.form.get("username")
-        p = request.form.get("password")
-        c = request.form.get("confirm")
+        u = request.form.get("username", "").strip()
+        p = request.form.get("password", "").strip()
+        confirm = request.form.get("confirm_password", "").strip()
 
-        if u in users:
-            error = "User exists"
-        elif p != c:
-            error = "Passwords mismatch"
+        if not u or not p:
+            error = "Username and password required"
+        elif len(u) < 3:
+            error = "Username must be at least 3 characters"
+        elif len(p) < 6:
+            error = "Password must be at least 6 characters"
+        elif p != confirm:
+            error = "Passwords dont match"
+        elif u in users:
+            error = "Username already taken"
         else:
-            users[u] = {
-                "password": hash_pw(p),
-                "plan": "free",
-                "created": datetime.now().isoformat()
-            }
+            users[u] = {"password": hash_pw(p), "plan": "free", "created": datetime.now().isoformat()}
             save_users(users)
-            return redirect("/login")
+            return redirect("/login?success=Account created! Login to continue")
 
-    return f"""
-    <h2>Signup</h2>
-    {error if error else ""}
-    <form method='POST'>
-    <input name='username' placeholder='Username'><br>
-    <input name='password' type='password'><br>
-    <input name='confirm' type='password'><br>
-    <button>Signup</button>
-    </form>
-    <a href='/login'>Login</a>
-    """
+    error_html = f'<div class="error">WARN {error}</div>' if error else ""
+    
+    html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign Up - JobFlow</title><style>*{{margin:0;padding:0;box-sizing:border-box}}body{{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center}}.container{{width:100%;max-width:480px;padding:20px}}.card{{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:20px;padding:50px 40px;box-shadow:0 8px 32px rgba(0,0,0,0.3)}}.logo{{font-size:40px;text-align:center;margin-bottom:20px}}h2{{font-size:28px;margin-bottom:10px;font-weight:600}}.subtitle{{color:#cbd5e1;margin-bottom:30px;font-size:14px}}.form-group{{margin-bottom:20px}}label{{display:block;font-size:13px;font-weight:500;margin-bottom:8px;color:#cbd5e1;text-transform:uppercase}}input{{width:100%;padding:14px 16px;background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#f1f5f9;font-size:15px}}.error{{background:rgba(239,68,68,0.1);border:1px solid #ef4444;color:#fca5a5;padding:12px;border-radius:10px;margin-bottom:20px;font-size:13px}}button{{width:100%;padding:14px 20px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;text-transform:uppercase;margin-top:10px}}.links{{text-align:center;margin-top:20px;font-size:14px}}.links a{{color:#0ea5e9;text-decoration:none}}@media(max-width:480px){{.card{{padding:40px 25px}}}}</style></head><body><div class="container"><div class="card"><div class="logo">POWER</div><h2>Create Account</h2><p class="subtitle">Join JobFlow and find your next opportunity</p>{error_html}<form method="POST"><div class="form-group"><label>Username</label><input type="text" name="username" placeholder="Enter username" required></div><div class="form-group"><label>Password</label><input type="password" name="password" placeholder="Min 6 characters" required></div><div class="form-group"><label>Confirm Password</label><input type="password" name="confirm_password" placeholder="Confirm password" required></div><button type="submit">Sign Up Free</button></form><div class="links">Already have account? <a href="/login">Login here</a></div></div></div></body></html>'''
+    return html
 
-# ---------- LOGIN ----------
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["GET","POST"])
 def login():
-    users = load_users()
     error = None
+    success = request.args.get("success")
+    users = load_users()
 
     if request.method == "POST":
-        u = request.form.get("username")
-        p = hash_pw(request.form.get("password"))
+        u = request.form.get("username", "").strip()
+        p = hash_pw(request.form.get("password", "").strip())
 
         if u in users and users[u]["password"] == p:
             session["user"] = u
-            session["plan"] = users[u]["plan"]
+            session["plan"] = users[u].get("plan", "free")
             return redirect("/dashboard")
         else:
-            error = "Invalid login"
+            error = "Invalid username or password"
 
-    return f"""
-    <h2>Login</h2>
-    {error if error else ""}
-    <form method='POST'>
-    <input name='username'><br>
-    <input name='password' type='password'><br>
-    <button>Login</button>
-    </form>
-    <a href='/signup'>Signup</a>
-    """
+    success_html = f'<div class="success">OK {success}</div>' if success else ""
+    error_html = f'<div class="error">WARN {error}</div>' if error else ""
+    
+    html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Login - JobFlow</title><style>*{{margin:0;padding:0;box-sizing:border-box}}body{{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center}}.container{{width:100%;max-width:480px;padding:20px}}.card{{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:20px;padding:50px 40px;box-shadow:0 8px 32px rgba(0,0,0,0.3)}}.logo{{font-size:40px;text-align:center;margin-bottom:20px}}h2{{font-size:28px;margin-bottom:10px;font-weight:600}}.subtitle{{color:#cbd5e1;margin-bottom:30px;font-size:14px}}.form-group{{margin-bottom:20px}}label{{display:block;font-size:13px;font-weight:500;margin-bottom:8px;color:#cbd5e1;text-transform:uppercase}}input{{width:100%;padding:14px 16px;background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.2);border-radius:10px;color:#f1f5f9;font-size:15px}}.error{{background:rgba(239,68,68,0.1);border:1px solid #ef4444;color:#fca5a5;padding:12px;border-radius:10px;margin-bottom:20px;font-size:13px}}.success{{background:rgba(34,197,94,0.1);border:1px solid #22c55e;color:#86efac;padding:12px;border-radius:10px;margin-bottom:20px;font-size:13px}}button{{width:100%;padding:14px 20px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;text-transform:uppercase;margin-top:10px}}.links{{text-align:center;margin-top:20px;font-size:14px}}.links a{{color:#0ea5e9;text-decoration:none}}@media(max-width:480px){{.card{{padding:40px 25px}}}}</style></head><body><div class="container"><div class="card"><div class="logo">POWER</div><h2>Welcome Back</h2><p class="subtitle">Login to your JobFlow account</p>{success_html}{error_html}<form method="POST"><div class="form-group"><label>Username</label><input type="text" name="username" placeholder="Enter username" required></div><div class="form-group"><label>Password</label><input type="password" name="password" placeholder="Enter password" required></div><button type="submit">Login</button></form><div class="links">Don't have account? <a href="/signup">Sign up now</a></div></div></div></body></html>'''
+    return html
 
-# ---------- LOGOUT ----------
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect("/login")
+    return redirect("/login?success=Logged out successfully")
 
-# ---------- DASHBOARD ----------
 @app.route("/dashboard")
 def dashboard():
     if "user" not in session:
         return redirect("/login")
+    
+    users = load_users()
+    user_data = users.get(session["user"], {})
+    plan = session.get("plan", "free")
+    plan_info = PLANS.get(plan, PLANS["free"])
+    
+    features = "".join([f"<li>{f}</li>" for f in plan_info['features']])
+    upgrade = '<a href="/pricing" class="btn">Upgrade to Premium</a>' if plan == "free" else '<div style="display:flex;gap:10px;justify-content:space-between;align-items:center;"><div style="color:#22c55e;font-weight:600;font-size:13px;">OK Premium Active</div><a href="/downgrade" style="color:#f87171;font-size:13px;text-decoration:underline;">Downgrade</a></div>'
+    created = user_data.get('created', 'N/A')[:10]
+    plan_class = 'premium' if plan == 'premium' else ''
+    
+    html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dashboard - JobFlow</title><style>*{{margin:0;padding:0;box-sizing:border-box}}body{{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh}}.navbar{{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border-bottom:1px solid rgba(148,163,184,0.1);padding:15px 30px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}}.navbar-brand{{font-size:24px;font-weight:600;display:flex;align-items:center;gap:10px}}.navbar-menu{{display:flex;gap:20px;align-items:center}}.user-info{{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(15,23,42,0.5);border-radius:8px}}.plan-badge{{padding:6px 12px;background:rgba(14,165,233,0.2);border:1px solid rgba(14,165,233,0.3);border-radius:6px;font-size:12px;font-weight:500;color:#0ea5e9;text-transform:uppercase}}.plan-badge.premium{{background:rgba(168,85,247,0.2);border-color:rgba(168,85,247,0.3);color:#a855f7}}a{{color:#0ea5e9;text-decoration:none}}.container{{max-width:1200px;margin:40px auto;padding:0 20px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:25px}}.card{{background:rgba(30,41,59,0.6);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:15px;padding:30px;transition:all 0.3s ease}}.card:hover{{border-color:rgba(14,165,233,0.3);transform:translateY(-5px)}}.welcome-card{{grid-column:1/-1}}.welcome-card h1{{font-size:36px;margin-bottom:15px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}}.card h3{{font-size:18px;margin-bottom:15px}}.card-content{{color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:15px}}.features-list{{list-style:none}}.features-list li{{padding:8px 0;color:#cbd5e1}}.features-list li:before{{content:'CHECK ';color:#22c55e;font-weight:bold}}.btn{{display:inline-block;padding:12px 24px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;border-radius:8px;text-decoration:none;transition:all 0.3s ease;font-weight:600;font-size:14px;text-transform:uppercase}}.btn:hover{{transform:translateY(-2px);box-shadow:0 8px 20px rgba(14,165,233,0.3)}}.search-card{{grid-column:1/-1}}form{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px}}.form-group{{display:flex;flex-direction:column}}.form-group label{{font-size:12px;font-weight:600;color:#cbd5e1;text-transform:uppercase;margin-bottom:6px}}input{{padding:12px 14px;background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.2);border-radius:8px;color:#f1f5f9}}.button-group{{display:flex;gap:10px}}.button-group .btn{{flex:1;padding:12px}}.logout-btn{{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;padding:8px 16px}}@media(max-width:768px){{.navbar{{flex-direction:column;gap:15px}}.grid{{grid-template-columns:1fr}}form{{grid-template-columns:1fr}}}}</style></head><body><div class="navbar"><div class="navbar-brand"><em style="font-size:28px;">POWER</em> JobFlow</div><div class="navbar-menu"><div class="user-info">FACE {session['user']}</div><span class="plan-badge {plan_class}">{plan_info['name']}</span><a href="/logout" class="logout-btn">Logout</a></div></div><div class="container"><div class="grid"><div class="card welcome-card"><h1>Welcome, {session['user']}! WAVE</h1><p>Find your next opportunity with JobFlow. Your plan: <strong>{plan_info['name']}</strong></p></div><div class="card"><h3>CHART Your Plan</h3><div class="card-content"><p><strong>{plan_info['name']}</strong> - {plan_info['price']}/month</p><p style="margin-top:10px;">Searches/month: <strong>{plan_info['jobs_per_month']}</strong></p></div>{upgrade}</div><div class="card"><h3>STAR Premium Features</h3><ul class="features-list">{features}</ul></div><div class="card"><h3>TARGET Quick Stats</h3><div class="card-content"><p>Member since: <strong>{created}</strong></p><p style="margin-top:10px;">Account Status: <strong style="color:#22c55e;">Active</strong></p></div></div><div class="card search-card"><h3>SEARCH Search for Jobs</h3><form action="/search" method="GET"><div class="form-group"><label>Job Category</label><input type="text" name="category" placeholder="e.g. Python Developer" required></div><div class="form-group"><label>Location</label><input type="text" name="location" placeholder="e.g. Johannesburg" required></div><div class="button-group"><button type="submit" class="btn" style="margin:0;">Search Jobs</button></div></form></div></div></div></body></html>'''
+    return html
 
-    return f"""
-    <h2>Welcome {session['user']}</h2>
-    <a href='/logout'>Logout</a>
+@app.route("/pricing")
+def pricing():
+    if "user" not in session:
+        return redirect("/login")
+    
+    current_plan = session.get("plan", "free")
+    
+    html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Pricing - JobFlow</title><style>*{{margin:0;padding:0;box-sizing:border-box}}body{{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh}}.navbar{{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border-bottom:1px solid rgba(148,163,184,0.1);padding:15px 30px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}}.navbar a{{color:#0ea5e9;text-decoration:none;font-weight:600}}.container{{max-width:1000px;margin:40px auto;padding:0 20px}}.header{{text-align:center;margin-bottom:50px}}.header h1{{font-size:40px;margin-bottom:10px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}}.header p{{color:#cbd5e1;font-size:16px}}.pricing-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:30px;margin-bottom:40px}}.pricing-card{{background:rgba(30,41,59,0.6);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:20px;padding:40px;transition:all 0.3s ease;position:relative}}.pricing-card:hover{{border-color:rgba(14,165,233,0.3);transform:translateY(-10px)}}.pricing-card.active{{border:2px solid #0ea5e9;background:rgba(30,41,59,0.8)}}.pricing-card .badge{{position:absolute;top:-15px;right:20px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;text-transform:uppercase}}.pricing-card h2{{font-size:24px;margin-bottom:10px}}.price{{font-size:36px;font-weight:700;color:#0ea5e9;margin-bottom:5px}}.price-period{{color:#cbd5e1;font-size:14px;margin-bottom:30px}}.features{{list-style:none;margin-bottom:30px}}.features li{{padding:10px 0;color:#cbd5e1;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(148,163,184,0.1)}}.features li:last-child{{border-bottom:none}}.features li:before{{content:'CHECK';color:#22c55e;font-weight:bold;font-size:12px}}.btn{{display:block;width:100%;padding:14px 24px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;border:none;border-radius:10px;text-decoration:none;text-align:center;font-weight:600;font-size:14px;cursor:pointer;transition:all 0.3s ease;text-transform:uppercase}}.btn:hover{{transform:translateY(-2px);box-shadow:0 8px 20px rgba(14,165,233,0.3)}}.btn-current{{background:rgba(34,197,94,0.2);color:#86efac;border:1px solid #22c55e}}.btn-current:hover{{background:rgba(34,197,94,0.3)}}.comparison{{background:rgba(30,41,59,0.6);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:20px;padding:30px;margin-top:40px}}.comparison h3{{margin-bottom:20px}}.comparison table{{width:100%;border-collapse:collapse}}.comparison td{{padding:12px;border-bottom:1px solid rgba(148,163,184,0.1);text-align:center}}.comparison td:first-child{{text-align:left;color:#cbd5e1}}.comparison tr:last-child td{{border-bottom:none}}@media(max-width:768px){{.pricing-grid{{grid-template-columns:1fr}}.header h1{{font-size:28px}}}}</style></head><body><div class="navbar"><a href="/dashboard">BACK Back to Dashboard</a></div><div class="container"><div class="header"><h1>Simple, Transparent Pricing</h1><p>Choose the perfect plan for your job search</p></div><div class="pricing-grid">'''
+    
+    # Free Plan Card
+    active_free = 'active' if current_plan == 'free' else ''
+    html += f'''<div class="pricing-card {active_free}">
+        <h2>Free</h2>
+        <div class="price">$0</div>
+        <div class="price-period">/month</div>
+        <ul class="features">
+            <li>10 job searches</li>
+            <li>Basic search</li>
+            <li>Email support</li>
+        </ul>
+        <button class="btn btn-current" disabled>Your Current Plan</button>
+    </div>'''
+    
+    # Premium Plan Card
+    active_premium = 'active' if current_plan == 'premium' else ''
+    if current_plan == 'premium':
+        premium_btn = '<button class="btn btn-current" disabled>Your Current Plan</button>'
+    else:
+        premium_btn = '<button class="btn" onclick="upgradePlan()">Upgrade Now</button>'
+    
+    html += f'''<div class="pricing-card {active_premium}">
+        <div class="badge">POPULAR</div>
+        <h2>Premium</h2>
+        <div class="price">$9.99</div>
+        <div class="price-period">/month</div>
+        <ul class="features">
+            <li>Unlimited searches</li>
+            <li>Save jobs</li>
+            <li>Job alerts</li>
+            <li>Advanced filters</li>
+            <li>Priority support</li>
+        </ul>
+        {premium_btn}
+    </div></div>'''
+    
+    # Comparison Table
+    html += '''<div class="comparison"><h3>Feature Comparison</h3><table><tr><td style="text-align:left;font-weight:600;">Feature</td><td style="font-weight:600;">Free</td><td style="font-weight:600;">Premium</td></tr><tr><td>Monthly Searches</td><td>10</td><td>Unlimited</td></tr><tr><td>Save Jobs</td><td>NO</td><td>CHECK</td></tr><tr><td>Job Alerts</td><td>NO</td><td>CHECK</td></tr><tr><td>Advanced Filters</td><td>NO</td><td>CHECK</td></tr><tr><td>Email Support</td><td>CHECK</td><td>CHECK</td></tr><tr><td>Priority Support</td><td>NO</td><td>CHECK</td></tr></table></div></div><script>function upgradePlan() { if(confirm('Upgrade to Premium for $9.99/month?')) { window.location.href = '/checkout'; } }</script></body></html>'''
+    
+    return html
 
-    <h3>Search Jobs</h3>
-    <form action="/search" method="GET">
-        <input name="category" placeholder="Job (e.g Python)">
-        <input name="location" placeholder="Location">
-        <button>Search</button>
-    </form>
-    """
+@app.route("/checkout")
+def checkout():
+    if "user" not in session:
+        return redirect("/login")
+    
+    html = '''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Checkout - JobFlow</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center}.container{width:100%;max-width:500px;padding:20px}.card{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.3)}.logo{font-size:40px;text-align:center;margin-bottom:20px}h2{font-size:28px;margin-bottom:20px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.plan-box{background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.2);border-radius:10px;padding:20px;margin-bottom:20px}.plan-box h3{margin-bottom:10px;color:#0ea5e9}.price-display{font-size:32px;font-weight:700;color:#0ea5e9;margin-bottom:20px}.features-list{list-style:none;margin-bottom:20px}.features-list li{padding:8px 0;color:#cbd5e1;display:flex;gap:8px}.features-list li:before{content:'CHECK';color:#22c55e;font-weight:bold;font-size:12px}.form-group{margin-bottom:15px}label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:#cbd5e1;text-transform:uppercase}input{width:100%;padding:12px;background:rgba(15,23,42,0.5);border:1px solid rgba(148,163,184,0.2);border-radius:8px;color:#f1f5f9}.btn{width:100%;padding:14px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;border:none;border-radius:10px;font-weight:600;cursor:pointer;transition:all 0.3s ease;text-transform:uppercase;margin-top:20px}.btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(14,165,233,0.3)}.info{background:rgba(34,197,94,0.1);border:1px solid #22c55e;color:#86efac;padding:12px;border-radius:8px;margin-bottom:20px;font-size:13px}.error{background:rgba(239,68,68,0.1);border:1px solid #ef4444;color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;font-size:13px}a{color:#0ea5e9;text-decoration:none}</style></head><body><div class="container"><div class="card"><div class="logo">MONEY</div><h2>Upgrade to Premium</h2><div class="info">CLOCK Demo Mode: Use card 4242 4242 4242 4242</div><div class="plan-box"><h3>Premium Plan</h3><div class="price-display">$9.99/mo</div><ul class="features-list"><li>Unlimited searches</li><li>Save jobs</li><li>Job alerts</li><li>Advanced filters</li></ul></div><form action="/process-payment" method="POST"><div class="form-group"><label>Cardholder Name</label><input type="text" name="name" placeholder="John Doe" required></div><div class="form-group"><label>Card Number</label><input type="text" name="card" placeholder="4242 4242 4242 4242" maxlength="19" required></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="form-group"><label>Expiry (MM/YY)</label><input type="text" name="expiry" placeholder="12/25" maxlength="5" required></div><div class="form-group"><label>CVC</label><input type="text" name="cvc" placeholder="123" maxlength="3" required></div></div><button type="submit" class="btn">Complete Purchase</button><a href="/pricing" style="display:block;text-align:center;margin-top:15px;font-size:14px;">← Back to Pricing</a></form></div></div></body></html>'''
+    
+    return html
 
-# ---------- SEARCH (FIXED) ----------
-@app.route("/search", methods=["GET"])
+@app.route("/process-payment", methods=["POST"])
+def process_payment():
+    if "user" not in session:
+        return redirect("/login")
+    
+    name = request.form.get("name", "").strip()
+    card = request.form.get("card", "").strip()
+    expiry = request.form.get("expiry", "").strip()
+    cvc = request.form.get("cvc", "").strip()
+    
+    # Basic validation
+    if not all([name, card, expiry, cvc]):
+        return "Error: All fields required", 400
+    
+    if len(card) < 16:
+        return "Error: Invalid card number", 400
+    
+    # Process payment (in demo, just approve it)
+    users = load_users()
+    users[session["user"]]["plan"] = "premium"
+    users[session["user"]]["payment_method"] = card[-4:]
+    users[session["user"]]["upgraded_at"] = datetime.now().isoformat()
+    save_users(users)
+    
+    session["plan"] = "premium"
+    
+    html = '''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Payment Success - JobFlow</title><style>*{margin:0;padding:0;box-sizing:border-box}body{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh;display:flex;align-items:center;justify-content:center}.container{width:100%;max-width:500px;padding:20px}.card{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:20px;padding:40px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3)}.success-icon{font-size:60px;margin-bottom:20px}h2{font-size:28px;margin-bottom:10px;color:#22c55e}p{color:#cbd5e1;margin-bottom:20px;font-size:15px}.details{background:rgba(34,197,94,0.1);border:1px solid #22c55e;border-radius:10px;padding:20px;margin-bottom:30px;text-align:left}.details p{margin-bottom:10px;color:#86efac}.btn{display:inline-block;padding:14px 30px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;text-decoration:none;border-radius:10px;font-weight:600;transition:all 0.3s ease;text-transform:uppercase}a:hover{opacity:0.9}</style></head><body><div class="container"><div class="card"><div class="success-icon">CHECK</div><h2>Payment Successful!</h2><p>Your upgrade to Premium is complete</p><div class="details"><p>FACE Plan: <strong>Premium</strong></p><p>CLOCK Billing: Monthly at $9.99</p><p>STATUS Your account is now active</p></div><a href="/dashboard" class="btn">Go to Dashboard</a></div></div></body></html>'''
+    
+    return html
+
+@app.route("/downgrade")
+def downgrade():
+    if "user" not in session:
+        return redirect("/login")
+    
+    users = load_users()
+    users[session["user"]]["plan"] = "free"
+    users[session["user"]]["downgraded_at"] = datetime.now().isoformat()
+    save_users(users)
+    session["plan"] = "free"
+    
+    return redirect("/dashboard?downgraded=true")
+
+@app.route("/search")
 def search():
     if "user" not in session:
         return redirect("/login")
 
-    category = request.args.get("category")
-    location = request.args.get("location")
-
-    jobs = search_jobs(category, location)
+    category = request.args.get("category", "")
+    location = request.args.get("location", "")
+    jobs = search_jobs(category, location) if category and location else []
 
     if not jobs:
-        return f"""
-        <h2>No jobs found</h2>
-        <a href='/dashboard'>Back</a>
-        """
+        content = '<div class="loader"></div><div class="loader-text">Searching for jobs...</div><div class="empty-state"><h3>No jobs found</h3><p>Try different keywords</p><a href="/dashboard">BACK Back to search</a></div>'
+    else:
+        content = ""
+        for job in jobs:
+            title = job.get('title', 'Job Title')
+            company = job.get('company', {}).get('display_name', 'Company')
+            loc = job.get('location', {}).get('display_name', 'Location')
+            url = job.get('redirect_url', '#')
+            content += f'<div class="job-card"><div class="job-title">{title}</div><div class="job-company">{company}</div><div class="job-location">PIN {loc}</div><a href="{url}" target="_blank" class="apply-btn">Apply Now</a></div>'
+    
+    html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Job Results - JobFlow</title><style>*{{margin:0;padding:0;box-sizing:border-box}}body{{background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#f1f5f9;min-height:100vh}}.navbar{{background:rgba(30,41,59,0.8);backdrop-filter:blur(10px);border-bottom:1px solid rgba(148,163,184,0.1);padding:15px 30px;position:sticky;top:0;z-index:100}}.navbar a{{color:#0ea5e9;text-decoration:none;font-weight:600}}.container{{max-width:900px;margin:40px auto;padding:0 20px}}.search-header{{background:rgba(30,41,59,0.6);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:15px;padding:25px;margin-bottom:30px}}.search-header h2{{font-size:24px;margin-bottom:8px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}}.job-card{{background:rgba(30,41,59,0.6);backdrop-filter:blur(10px);border:1px solid rgba(148,163,184,0.1);border-radius:15px;padding:25px;margin-bottom:20px;transition:all 0.3s ease}}.job-card:hover{{border-color:rgba(14,165,233,0.3);transform:translateY(-3px)}}.job-title{{font-size:18px;font-weight:600;margin-bottom:8px}}.job-company{{font-size:15px;color:#0ea5e9;font-weight:500;margin-bottom:5px}}.job-location{{font-size:13px;color:#cbd5e1;margin-bottom:15px}}.apply-btn{{display:inline-block;padding:12px 24px;background:linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;text-transform:uppercase}}.loader{{width:50px;height:50px;border:4px solid rgba(148,163,184,0.2);border-top:4px solid #0ea5e9;border-radius:50%;animation:spin 0.8s linear infinite;margin:40px auto}}@keyframes spin{{100%{{transform:rotate(360deg)}}}}}},.empty-state{{text-align:center;padding:60px 20px;color:#cbd5e1}}</style></head><body><div class="navbar"><a href="/dashboard">BACK Back to Dashboard</a></div><div class="container"><div class="search-header"><h2>SEARCH Search Results</h2><p>Jobs for "<strong>{category}</strong>" in <strong>{location}</strong></p></div>{content}</div></body></html>'''
+    return html
 
-    results = ""
-    for job in jobs:
-        title = job.get("title", "Job")
-        company = job.get("company", {}).get("display_name", "")
-        url = job.get("redirect_url", "#")
-
-        results += f"""
-        <div>
-            <h3>{title}</h3>
-            <p>{company}</p>
-            <a href="{url}" target="_blank">Apply</a>
-        </div>
-        <hr>
-        """
-
-    return f"""
-    <h2>Results</h2>
-    {results}
-    <a href='/dashboard'>Back</a>
-    """
-
-# ---------- RUN --------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000, debug=True)
